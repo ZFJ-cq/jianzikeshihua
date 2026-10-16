@@ -116,7 +116,7 @@
   nav.tabs button.active:hover{color:#fff;}
 
   /* ===== 布局 ===== */
-  main{max-width:1180px;margin:0 auto;padding:28px 24px;}
+  main{max-width:1240px;margin:0 auto;padding:28px 24px;}
   .section{display:none;}
   .section.active{display:block;animation:secIn .3s var(--ease);}
   @keyframes secIn{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:none;}}
@@ -126,7 +126,7 @@
   .page-head h2{font-family:var(--font-disp);font-size:25px;margin:0;color:var(--ink);letter-spacing:2px;}
   .page-head p{margin:8px 0 0;color:var(--ink-3);font-size:13.5px;line-height:1.7;max-width:660px;}
 
-  .studio{display:grid;grid-template-columns:248px 1fr 312px;gap:18px;align-items:start;}
+  .studio{display:grid;grid-template-columns:240px 1fr 304px;gap:18px;align-items:start;}
   @media(max-width:980px){.studio{grid-template-columns:1fr;}}
 
   /* 卡片 */
@@ -164,10 +164,10 @@
   .stage{
     position:relative;background:repeating-linear-gradient(45deg,#FBF4E4 0 12px,#F6ECD8 12px 24px);
     border:1px solid var(--gold);border-radius:var(--r-md);padding:14px;
-    box-shadow:var(--sh-2);width:100%;max-width:560px;
+    box-shadow:var(--sh-2);width:100%;max-width:640px;
   }
   canvas.draw{touch-action:none;display:block;border-radius:var(--r-sm);background:#fff;
-    width:100%;max-width:560px;height:auto;aspect-ratio:1/1;}
+    width:100%;max-width:640px;height:auto;aspect-ratio:1/1;}
   .hint{font-size:12.5px;color:var(--ink-3);text-align:center;max-width:360px;line-height:1.6;}
 
   /* 按钮 */
@@ -819,6 +819,25 @@
     while(a<-Math.PI) a+=2*Math.PI;
     return Math.abs(a) <= Math.PI/fold.n;
   }
+  // 将触控点吸附进折叠域：纸外→贴纸边，扇区外→贴折痕。
+  // 避免用户在窄扇区（如六折 ±30°）里手指稍滑出就丢点、笔画断裂。
+  function clampToDomain(p, fold){
+    const dx=p.x-C, dy=p.y-C;
+    const d=Math.min(Math.hypot(dx,dy), R);
+    const a=Math.atan2(dy,dx);
+    if(fold.shape==="rect"){
+      let x=C+d*Math.cos(a);
+      if(x<C) x=C; // 方形对折只保留右半
+      return {x, y:C+d*Math.sin(a)};
+    }
+    let rel=a+Math.PI/2; // 相对「竖直向上」折痕的角度
+    while(rel> Math.PI) rel-=2*Math.PI;
+    while(rel<-Math.PI) rel+=2*Math.PI;
+    const lim=Math.PI/fold.n;
+    const ca=Math.max(-lim, Math.min(lim, rel));
+    const ang=-Math.PI/2+ca;
+    return {x:C+Math.cos(ang)*d, y:C+Math.sin(ang)*d};
+  }
   function bindDraw(cv, ctx, onEnd){
     let drawing=false, current=null;
     function pos(e){
@@ -844,8 +863,7 @@
     cv.addEventListener("pointercancel", finish);
     cv.addEventListener("pointerleave", finish);
     function add(e){
-      const p=pos(e);
-      if(!pointInDomain(p, state.fold)) return;
+      const p=clampToDomain(pos(e), state.fold);
       if(current.length){
         const last=current[current.length-1];
         if(Math.hypot(p.x-last.x,p.y-last.y)<2) return;
@@ -1026,7 +1044,7 @@
         if(state.fold.shape==="rect") state.mirror=true; // 方形对折必须镜像
         state.fold.mirror=state.mirror;
         state.strokes=[]; state.history=[]; state.future=[];
-        buildLeftPanel(); drawFolded(); schedulePreview();
+        buildLeftPanel(); drawFolded(); schedulePreview(); updateUndoButtons();
       };
     });
     // 笔法
@@ -1103,7 +1121,7 @@
     if(state.fold.id!=="six"){ state.fold=Object.assign({}, FOLDS.six); state.fold.mirror=state.mirror; }
     state.strokes=clone(t.strokes);
     state.history=[]; state.future=[];
-    buildLeftPanel(); drawFolded(); schedulePreview();
+    buildLeftPanel(); drawFolded(); schedulePreview(); updateUndoButtons();
     toast("已载入灵感模板：「"+t.name+"」","info");
   }
   const PRACTICE_TARGETS=[
@@ -1159,8 +1177,7 @@
     practiceCanvas.addEventListener("pointerleave",fin);
     function add(e){
       const r=practiceCanvas.getBoundingClientRect();
-      const p={x:(e.clientX-r.left)*(SIZE/r.width), y:(e.clientY-r.top)*(SIZE/r.height)};
-      if(!pointInDomain(p,pState.fold)) return;
+      const p=clampToDomain({x:(e.clientX-r.left)*(SIZE/r.width), y:(e.clientY-r.top)*(SIZE/r.height)}, pState.fold);
       const cur=pState.drawing;
       if(cur.length){ const l=cur[cur.length-1]; if(Math.hypot(p.x-l.x,p.y-l.y)<2) return; }
       cur.push(p);
