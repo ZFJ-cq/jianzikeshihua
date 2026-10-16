@@ -791,13 +791,13 @@
     ctx.restore();
   }
 
+  function renderPreview(){
+    const live = state.strokes.concat(state._drawing?[state._drawing]:[]);
+    renderUnfolded(previewCtx, state.fold, live, {mode:state.showDraft?"draft":"cut", showAux:state.showAux});
+  }
   function schedulePreview(){
     if(state._raf) return;
-    state._raf = requestAnimationFrame(()=>{
-      state._raf=null;
-      const live = state.strokes.concat(state._drawing?[state._drawing]:[]);
-      renderUnfolded(previewCtx, state.fold, live, {mode:state.showDraft?"draft":"cut", showAux:state.showAux});
-    });
+    state._raf = requestAnimationFrame(()=>{ state._raf=null; renderPreview(); });
   }
 
   /* ===================== 撤销/重做/清空 ===================== */
@@ -807,7 +807,7 @@
   function redo(){ if(!state.future.length) return; state.history.push(clone(state.strokes)); state.strokes=state.future.pop(); refresh(); }
   function clearStrokes(){ if(!state.strokes.length) return; pushUndo(); state.strokes=[]; refresh(); }
 
-  function refresh(){ drawFolded(); schedulePreview(); updateUndoButtons(); }
+  function refresh(){ drawFolded(); renderPreview(); updateUndoButtons(); }
 
   /* ===================== 触控裁剪 ===================== */
   function pointInDomain(p, fold){
@@ -861,7 +861,9 @@
     }
     cv.addEventListener("pointerup", finish);
     cv.addEventListener("pointercancel", finish);
-    cv.addEventListener("pointerleave", finish);
+    // 注意：不在 pointerleave 上 finish，否则拖拽过程中偶发的 pointerleave
+    // 会在只落了 1 个点时就提前结束，导致笔画被丢弃（实测偶发丢笔画）。
+    // 依赖 pointerup/pointercancel + setPointerCapture 即可稳定结束。
     function add(e){
       const p=clampToDomain(pos(e), state.fold);
       if(current.length){
