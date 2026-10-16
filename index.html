@@ -1,0 +1,1352 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+<title>剪纸坊 · 剪纸可视化模拟</title>
+<style>
+  /* ============================================================
+     剪纸坊 · 设计系统（宣雅 · 新中式工艺美学）
+     色彩 / 间距 / 圆角 / 阴影 / 字体 全部 token 化，统一层级与组件质感
+     ============================================================ */
+  :root{
+    /* 主色 —— 中国红（克制作点缀） */
+    --red:#BC2B22;
+    --red-deep:#8E1B16;
+    --red-soft:#FBEAE7;
+    /* 鎏金 */
+    --gold:#C2A05A;
+    --gold-deep:#A8843F;
+    --gold-soft:#EFE2BE;
+
+    /* 宣纸 / 表面 */
+    --paper:#F6EFE2;
+    --paper-2:#FBF7EE;
+    --surface:#FFFFFF;
+    --surface-2:#FBF5EA;
+
+    /* 文字层级 */
+    --ink:#241A12;
+    --ink-2:#5C4B38;
+    --ink-3:#9A8A70;
+
+    /* 描边 */
+    --line:#E9DECB;
+    --line-2:#F1E8D6;
+
+    /* 功能色 */
+    --ok:#2E7D52;
+
+    /* 间距（8 基准） */
+    --sp-1:4px; --sp-2:8px; --sp-3:12px; --sp-4:16px;
+    --sp-5:20px; --sp-6:24px; --sp-7:32px; --sp-8:40px;
+
+    /* 圆角 */
+    --r-xs:6px; --r-sm:10px; --r-md:14px; --r-lg:18px; --r-pill:999px;
+
+    /* 阴影 */
+    --sh-1:0 1px 2px rgba(54,38,22,.06), 0 1px 3px rgba(54,38,22,.05);
+    --sh-2:0 4px 14px rgba(54,38,22,.08), 0 2px 6px rgba(54,38,22,.05);
+    --sh-3:0 12px 32px rgba(54,38,22,.12), 0 4px 10px rgba(54,38,22,.06);
+    --sh-red:0 6px 18px rgba(188,43,34,.28);
+
+    /* 字体 */
+    --font-ui:"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Source Han Sans SC",sans-serif;
+    --font-disp:"STKaiti","KaiTi","Kaiti SC","Songti SC",serif;
+
+    /* 动效 */
+    --ease:cubic-bezier(.22,.61,.36,1);
+    --t-fast:.16s; --t:.24s;
+  }
+
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  html{scroll-behavior:smooth;}
+  html,body{margin:0;padding:0;}
+  body{
+    font-family:var(--font-ui);
+    color:var(--ink);
+    background:radial-gradient(1000px 520px at 50% -8%, #FCF7EC 0%, var(--paper) 58%, #EFE6D4 100%);
+    background-attachment:fixed;
+    min-height:100vh;
+    -webkit-font-smoothing:antialiased;
+    text-rendering:optimizeLegibility;
+  }
+  /* 宣纸纹理：极淡颗粒，营造工艺质感与层次 */
+  body::before{
+    content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;opacity:.05;
+    mix-blend-mode:multiply;background-size:160px 160px;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.6'/%3E%3C/svg%3E");
+  }
+  .serif{font-family:var(--font-disp);}
+
+  /* ===== 顶部品牌栏（桌面：浅宣纸 + 金色发丝线） ===== */
+  header{
+    display:flex;align-items:center;justify-content:space-between;
+    padding:14px 24px;position:sticky;top:0;z-index:20;
+    background:linear-gradient(180deg,#FFFFFF 0%, #FCF8EF 100%);
+    border-bottom:1px solid var(--line);
+    box-shadow:0 2px 12px rgba(54,38,22,.06);
+  }
+  header::after{content:"";position:absolute;left:0;right:0;bottom:0;height:2px;
+    background:linear-gradient(90deg,transparent,var(--gold),transparent);opacity:.7;}
+  header .brand{display:flex;align-items:center;gap:12px;}
+  header .seal{
+    width:44px;height:44px;border-radius:10px;
+    background:linear-gradient(180deg,var(--red),var(--red-deep));color:#fff;
+    display:flex;align-items:center;justify-content:center;
+    font-weight:800;font-size:22px;font-family:var(--font-disp);
+    box-shadow:var(--sh-red), inset 0 0 0 1.5px rgba(255,255,255,.22);
+  }
+  header h1{font-size:20px;margin:0;letter-spacing:3px;font-family:var(--font-disp);color:var(--ink);}
+  header .sub{font-size:12px;color:var(--ink-3);letter-spacing:1px;margin-top:2px;}
+
+  /* ===== Tab 导航（桌面：浅底文字药丸；移动：底部红色栏，见媒体查询） ===== */
+  nav.tabs{display:flex;gap:8px;}
+  nav.tabs button{
+    position:relative;border:1px solid transparent;background:transparent;color:var(--ink-2);
+    padding:9px 16px;border-radius:var(--r-pill);font-size:14px;cursor:pointer;
+    transition:all var(--t-fast) var(--ease);
+    display:inline-flex;align-items:center;justify-content:center;gap:6px;
+    font-family:var(--font-ui);font-weight:600;
+  }
+  nav.tabs button .ico{display:none;}
+  nav.tabs button .ico svg{width:18px;height:18px;display:block;}
+  nav.tabs button:hover{color:var(--red-deep);background:var(--red-soft);}
+  nav.tabs button.active{background:linear-gradient(180deg,var(--red),var(--red-deep));color:#fff;box-shadow:var(--sh-red);}
+  nav.tabs button.active:hover{color:#fff;}
+
+  /* ===== 布局 ===== */
+  main{max-width:1180px;margin:0 auto;padding:28px 24px;}
+  .section{display:none;}
+  .section.active{display:block;animation:secIn .3s var(--ease);}
+  @keyframes secIn{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:none;}}
+
+  /* 页面级标题（信息架构） */
+  .page-head{margin-bottom:var(--sp-6);}
+  .page-head h2{font-family:var(--font-disp);font-size:25px;margin:0;color:var(--ink);letter-spacing:2px;}
+  .page-head p{margin:8px 0 0;color:var(--ink-3);font-size:13.5px;line-height:1.7;max-width:660px;}
+
+  .studio{display:grid;grid-template-columns:248px 1fr 312px;gap:18px;align-items:start;}
+  @media(max-width:980px){.studio{grid-template-columns:1fr;}}
+
+  /* 卡片 */
+  .card{
+    background:var(--surface);border:1px solid var(--line);border-radius:var(--r-md);
+    padding:var(--sp-5);box-shadow:var(--sh-1);
+    transition:box-shadow var(--t) var(--ease), transform var(--t) var(--ease);
+  }
+  .section.active .card{animation:cardIn .45s var(--ease) both;}
+  .section.active .studio > *:nth-child(1){animation-delay:.03s;}
+  .section.active .studio > *:nth-child(2){animation-delay:.09s;}
+  .section.active .studio > *:nth-child(3){animation-delay:.15s;}
+  @keyframes cardIn{from{opacity:0;transform:translateY(10px);}to{opacity:1;transform:none;}}
+  .card h3{
+    margin:0 0 var(--sp-4);font-family:var(--font-disp);font-size:17px;color:var(--red-deep);
+    letter-spacing:1.5px;display:flex;align-items:center;gap:8px;
+  }
+  .card h3::before{content:"";width:4px;height:17px;border-radius:2px;background:linear-gradient(var(--red),var(--red-deep));}
+
+  /* 折叠选择卡片 */
+  .fold-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+  .fold-card{
+    border:1px solid var(--line);border-radius:var(--r-sm);padding:12px;cursor:pointer;
+    text-align:center;background:var(--surface-2);transition:all var(--t-fast) var(--ease);
+    box-shadow:var(--sh-1);
+  }
+  .fold-card:hover{border-color:var(--gold);transform:translateY(-2px);box-shadow:var(--sh-2);}
+  .fold-card.active{border-color:var(--red);background:#fff;box-shadow:0 0 0 2px rgba(188,43,34,.15),var(--sh-2);}
+  .fold-card canvas{width:88px;height:88px;display:block;margin:0 auto 6px;}
+  .fold-card .nm{font-size:13.5px;font-weight:700;color:var(--ink);}
+  .fold-card .ds{font-size:11.5px;color:var(--ink-3);line-height:1.4;margin-top:2px;}
+
+  /* 画布 */
+  .canvas-wrap{display:flex;flex-direction:column;align-items:center;gap:12px;}
+  .stage{
+    position:relative;background:repeating-linear-gradient(45deg,#FBF4E4 0 12px,#F6ECD8 12px 24px);
+    border:1px solid var(--gold);border-radius:var(--r-md);padding:14px;
+    box-shadow:var(--sh-2);width:100%;max-width:560px;
+  }
+  canvas.draw{touch-action:none;display:block;border-radius:var(--r-sm);background:#fff;
+    width:100%;max-width:560px;height:auto;aspect-ratio:1/1;}
+  .hint{font-size:12.5px;color:var(--ink-3);text-align:center;max-width:360px;line-height:1.6;}
+
+  /* 按钮 */
+  .toolbar{display:flex;flex-wrap:wrap;gap:10px;justify-content:center;}
+  .btn{
+    display:inline-flex;align-items:center;justify-content:center;gap:6px;
+    font-family:var(--font-ui);font-size:14px;font-weight:600;line-height:1;white-space:nowrap;
+    padding:10px 16px;border-radius:var(--r-sm);border:1px solid var(--line);
+    background:var(--surface);color:var(--ink);cursor:pointer;
+    transition:all var(--t-fast) var(--ease);box-shadow:var(--sh-1);
+  }
+  .btn:hover{border-color:var(--gold);color:var(--red-deep);transform:translateY(-1px);box-shadow:var(--sh-2);}
+  .btn:active{transform:translateY(0);}
+  .btn.primary{background:linear-gradient(180deg,var(--red),var(--red-deep));color:#fff;border-color:var(--red-deep);box-shadow:var(--sh-red);}
+  .btn.primary:hover{background:linear-gradient(180deg,#C73329,var(--red-deep));color:#fff;}
+  .btn.gold{background:linear-gradient(180deg,var(--gold),var(--gold-deep));color:#3a2a08;border-color:var(--gold-deep);
+    font-weight:700;box-shadow:0 4px 12px rgba(194,160,90,.35);}
+  .btn.gold:hover{color:#3a2a08;filter:brightness(1.04);}
+  .btn.small{padding:8px 12px;font-size:13px;}
+  .btn.toggle.active{background:var(--red-soft);border-color:var(--red);color:var(--red-deep);box-shadow:none;font-weight:700;}
+
+  .row{display:flex;align-items:center;gap:10px;margin:12px 0;font-size:13.5px;}
+  .row label{color:var(--ink-2);min-width:52px;font-weight:600;}
+  input[type=range]{flex:1;accent-color:var(--red);height:4px;}
+  .swatches{display:flex;gap:8px;flex-wrap:wrap;}
+  .sw{width:26px;height:26px;border-radius:50%;border:2px solid #fff;cursor:pointer;
+    box-shadow:0 0 0 1px var(--line);transition:transform var(--t-fast),box-shadow var(--t-fast);}
+  .sw:hover{transform:scale(1.08);}
+  .sw.active{box-shadow:0 0 0 2px var(--gold);}
+
+  .preview-box{display:flex;flex-direction:column;align-items:center;gap:12px;}
+  .preview-box canvas{background:radial-gradient(circle at 50% 38%, #EAF3FF 0%, #D7E6F7 100%);
+    border-radius:var(--r-md);border:1px solid var(--line);
+    width:100%;max-width:300px;height:auto;aspect-ratio:1/1;box-shadow:var(--sh-1);}
+
+  /* 作品集 */
+  .gallery{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:16px;}
+  .work{
+    background:var(--surface);border:1px solid var(--line);border-radius:var(--r-md);
+    overflow:hidden;cursor:pointer;transition:all var(--t) var(--ease);box-shadow:var(--sh-1);
+  }
+  .work:hover{transform:translateY(-4px);box-shadow:var(--sh-3);border-color:var(--gold);}
+  .work img{width:100%;display:block;background:#D7E6F7;}
+  .work .meta{padding:10px 12px;}
+  .work .meta .t{font-weight:700;color:var(--red-deep);font-size:13.5px;}
+  .work .meta .d{color:var(--ink-3);font-size:11.5px;margin-top:3px;}
+  .empty{text-align:center;color:var(--ink-3);padding:48px 16px;font-size:14px;
+    border:1px dashed var(--line);border-radius:var(--r-md);background:var(--surface-2);}
+
+  /* 弹窗 */
+  .modal-mask{position:fixed;inset:0;background:rgba(40,25,15,.5);backdrop-filter:blur(3px);
+    display:none;align-items:center;justify-content:center;z-index:50;padding:20px;}
+  .modal-mask.show{display:flex;animation:fadeIn var(--t) var(--ease);}
+  @keyframes fadeIn{from{opacity:0;}to{opacity:1;}}
+  .modal{background:var(--surface);border-radius:var(--r-lg);max-width:560px;width:100%;
+    padding:22px;max-height:90vh;overflow:auto;border:1px solid var(--line);box-shadow:var(--sh-3);}
+  .modal canvas{width:100%;max-width:340px;height:auto;aspect-ratio:1/1;
+    background:radial-gradient(circle at 50% 38%, #EAF3FF 0%, #D7E6F7 100%);
+    border-radius:var(--r-md);border:1px solid var(--line);box-shadow:var(--sh-1);}
+  .modal h2{margin:0 0 14px;color:var(--red-deep);font-family:var(--font-disp);letter-spacing:1px;font-size:20px;}
+  .modal .close{float:right;cursor:pointer;color:var(--ink-3);font-size:24px;line-height:1;transition:color var(--t-fast);}
+  .modal .close:hover{color:var(--red);}
+
+  /* 关于 / 创新 */
+  .innov h2{color:var(--red-deep);font-family:var(--font-disp);font-size:22px;margin:0 0 8px;letter-spacing:1px;}
+  .innov .lead{color:var(--ink-2);font-size:14px;line-height:1.8;margin:0 0 var(--sp-5);}
+  .innov .item{
+    position:relative;border:1px solid var(--line);background:var(--surface);
+    border-radius:var(--r-md);padding:14px 16px 14px 56px;margin:12px 0;
+    box-shadow:var(--sh-1);transition:all var(--t-fast) var(--ease);line-height:1.7;
+  }
+  .innov .item:hover{box-shadow:var(--sh-2);border-color:var(--gold);}
+  .innov .item b{color:var(--red);}
+  .innov .num{position:absolute;left:15px;top:15px;width:26px;height:26px;line-height:26px;text-align:center;
+    background:linear-gradient(180deg,var(--red),var(--red-deep));color:#fff;border-radius:50%;
+    font-size:13px;font-weight:700;box-shadow:var(--sh-red);}
+  .tag{display:inline-block;background:var(--gold-soft);color:var(--gold-deep);
+    padding:4px 10px;border-radius:var(--r-pill);font-size:12px;margin:3px 4px 0 0;font-weight:600;}
+
+  footer{text-align:center;color:var(--ink-3);font-size:12.5px;padding:28px 16px;letter-spacing:.5px;}
+
+  .practice-targets{display:flex;flex-direction:column;gap:10px;}
+  .pt-card{border:1px solid var(--line);border-radius:var(--r-sm);padding:10px;cursor:pointer;
+    display:flex;gap:12px;align-items:center;background:var(--surface-2);
+    transition:all var(--t-fast) var(--ease);box-shadow:var(--sh-1);}
+  .pt-card:hover{border-color:var(--gold);transform:translateY(-1px);box-shadow:var(--sh-2);}
+  .pt-card.active{border-color:var(--red);background:#fff;box-shadow:0 0 0 2px rgba(188,43,34,.12);}
+  .pt-card canvas{width:56px;height:56px;flex:none;border-radius:var(--r-xs);background:var(--paper-2);}
+  .pt-card .nm{font-weight:700;font-size:13.5px;color:var(--ink);}
+  .pt-card .df{font-size:11.5px;color:var(--ink-3);margin-top:2px;}
+
+  .score-badge{font-size:38px;font-weight:800;color:var(--red);text-align:center;
+    font-family:var(--font-disp);letter-spacing:1px;}
+
+  /* ============================================================
+     响应式：移动端底部导航 + 单列重排 + 横屏适配
+     ============================================================ */
+  @media (max-width:820px){
+    header{padding:10px 14px;padding-top:calc(10px + env(safe-area-inset-top));}
+    header h1{font-size:17px;letter-spacing:1px;}
+    header .sub{display:none;}
+    header .seal{width:38px;height:38px;font-size:18px;border-radius:9px;}
+
+    /* Tab → 固定底部导航栏（图标+文字，≥40px 命中区，安全区适配） */
+    nav.tabs{
+      position:fixed;left:0;right:0;bottom:0;top:auto;
+      display:flex;justify-content:space-around;align-items:stretch;gap:0;
+      background:linear-gradient(0deg,var(--red-deep) 0%,var(--red) 100%);
+      border-top:1px solid rgba(255,255,255,.15);
+      box-shadow:0 -6px 20px rgba(142,27,22,.3);
+      padding-bottom:env(safe-area-inset-bottom);
+      z-index:40;
+    }
+    nav.tabs button{flex:1 1 0;flex-direction:column;justify-content:center;gap:3px;
+      background:transparent;color:#fff;opacity:.7;border-radius:0;padding:8px 2px 6px;
+      font-size:11px;letter-spacing:1px;border:1px solid transparent;}
+    nav.tabs button .ico{display:block;width:24px;height:24px;}
+    nav.tabs button .ico svg{width:24px;height:24px;}
+    nav.tabs button.active{opacity:1;color:#fff;background:rgba(255,255,255,.12);box-shadow:none;}
+    nav.tabs button.active::before{content:"";position:absolute;top:0;left:50%;transform:translateX(-50%);
+      width:28px;height:3px;background:var(--gold);border-radius:0 0 3px 3px;}
+    nav.tabs button:hover{background:rgba(255,255,255,.08);color:#fff;}
+
+    body{padding-bottom:calc(82px + env(safe-area-inset-bottom));}
+    main{padding:18px 14px;max-width:100%;}
+    footer{padding:20px 14px;}
+
+    .studio{grid-template-columns:1fr;gap:16px;}
+    .studio > .canvas-wrap{order:-2;width:100%;}
+    #leftPanel{order:-1;}
+    .preview-box{order:0;}
+
+    /* 画布随容器自适应（见默认规则，max-width:560px），移动端天然受屏宽约束 */
+    .btn{padding:12px 15px;font-size:14px;min-height:44px;}
+    .btn.small{padding:10px 13px;font-size:13px;min-height:42px;}
+    .card{padding:16px;}
+    .fold-card{padding:12px;}
+    .fold-card canvas{width:74px;height:74px;}
+    .preview-box canvas{max-width:360px;}
+    .gallery{grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:12px;}
+    .modal{padding:18px;}
+    .page-head h2{font-size:21px;}
+    .page-head{margin-bottom:var(--sp-5);}
+  }
+  @media (max-width:360px){
+    header h1{font-size:16px;}
+    header .brand{gap:9px;}
+    nav.tabs button{font-size:10px;letter-spacing:0;}
+    nav.tabs button .ico{width:22px;height:22px;}
+    nav.tabs button .ico svg{width:22px;height:22px;}
+    .fold-card canvas{width:66px;height:66px;}
+    .studio{gap:14px;}
+  }
+  @media (max-width:820px) and (orientation:landscape){
+    .studio{grid-template-columns:1fr 1fr;gap:14px;align-items:start;}
+    .studio > .canvas-wrap{order:-1;grid-column:1;}
+    #leftPanel{order:0;grid-column:2;}
+    .preview-box{order:1;grid-column:1 / -1;}
+    nav.tabs button .ico{width:20px;height:20px;}
+    nav.tabs button .ico svg{width:20px;height:20px;}
+    body{padding-bottom:calc(72px + env(safe-area-inset-bottom));}
+  }
+
+  /* ===================== Toast 通知 ===================== */
+  .toast-wrap{position:fixed;left:50%;top:24px;transform:translateX(-50%);
+    display:flex;flex-direction:column;gap:10px;z-index:9999;pointer-events:none;width:max-content;max-width:92vw;}
+  .toast{display:flex;align-items:center;gap:9px;background:var(--surface);
+    color:var(--ink);padding:11px 16px;border-radius:var(--r-pill);
+    box-shadow:var(--sh-3);border:1px solid var(--line);font-size:14px;font-weight:500;
+    opacity:0;transform:translateY(-12px) scale(.96);transition:opacity .24s var(--ease),transform .24s var(--ease);
+    pointer-events:auto;max-width:92vw;line-height:1.3;}
+  .toast.show{opacity:1;transform:translateY(0) scale(1);}
+  .toast .ic{flex:0 0 auto;width:18px;height:18px;display:grid;place-items:center;border-radius:50%;font-size:12px;font-weight:700;color:#fff;}
+  .toast.ok .ic{background:var(--ok);}
+  .toast.info .ic{background:var(--gold-deep);}
+  .toast.warn .ic{background:var(--red);}
+  @media (max-width:820px){
+    .toast-wrap{top:auto;bottom:calc(78px + env(safe-area-inset-bottom));}
+    .toast{font-size:13px;padding:10px 14px;}
+  }
+
+  /* ===================== 轻确认弹层 ===================== */
+  .confirm-mask{position:fixed;inset:0;background:rgba(36,26,18,.42);backdrop-filter:blur(3px);
+    display:none;align-items:center;justify-content:center;z-index:9998;padding:20px;}
+  .confirm-mask.show{display:flex;animation:fade .2s var(--ease);}
+  .confirm{background:var(--surface);border-radius:var(--r-lg);border:2px solid var(--gold-soft);
+    box-shadow:var(--sh-3);max-width:340px;width:100%;padding:22px 20px;text-align:center;}
+  .confirm h3{margin:0 0 8px;font-size:17px;color:var(--ink);}
+  .confirm p{margin:0 0 18px;font-size:14px;color:var(--ink-2);line-height:1.5;}
+  .confirm .row{display:flex;gap:10px;justify-content:center;}
+  .confirm .btn{flex:1;}
+
+  /* ===================== 灵感模板 ===================== */
+  .inspire-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:8px;}
+  .inspire-card{border:1px solid var(--line);border-radius:var(--r-sm);background:var(--surface-2);
+    padding:6px;cursor:pointer;text-align:center;transition:.18s var(--ease);}
+  .inspire-card:hover{border-color:var(--gold);box-shadow:var(--sh-1);transform:translateY(-2px);}
+  .inspire-card:active{transform:translateY(0);}
+  .inspire-card canvas{width:100%;height:auto;display:block;border-radius:var(--r-xs);}
+  .inspire-card .nm{font-size:11px;color:var(--ink-2);margin-top:4px;}
+
+  /* ===================== 空状态 ===================== */
+  .empty{align-items:center;justify-content:center;display:flex;flex-direction:column;
+    gap:8px;color:var(--ink-3);padding:42px 16px;text-align:center;}
+  .empty .em{font-size:34px;opacity:.7;}
+  .empty .t{font-size:14px;color:var(--ink-3);}
+
+  /* ===================== 批量操作条 ===================== */
+  .list-bar{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;}
+  .list-bar .btn.danger{color:var(--red);border-color:var(--line);background:var(--surface);}
+  .list-bar .btn.danger:hover{border-color:var(--red);background:var(--red-soft);}
+
+  /* 禁用态 */
+  .btn:disabled,.btn[disabled]{opacity:.4;cursor:not-allowed;pointer-events:none;filter:grayscale(.3);}
+  .toolbar button:disabled{opacity:.4;pointer-events:none;}
+</style>
+</head>
+<body>
+<header>
+  <div class="brand">
+    <div class="seal serif">剪</div>
+    <div>
+      <h1 class="serif">剪纸坊</h1>
+      <div class="sub">剪纸可视化模拟 · 折叠 · 裁剪 · 展开</div>
+    </div>
+  </div>
+  <nav class="tabs" id="tabs">
+    <button data-tab="studio" class="active">
+      <span class="ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="2.4"/><circle cx="6" cy="18" r="2.4"/><line x1="20" y1="4" x2="8.4" y2="15.6"/><line x1="14.6" y1="14.6" x2="20" y2="20"/><line x1="8.4" y1="8.4" x2="12" y2="12"/></svg></span>
+      <span class="lbl">创作</span>
+    </button>
+    <button data-tab="gallery">
+      <span class="ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="3.5" width="7" height="7" rx="1"/><rect x="13.5" y="3.5" width="7" height="7" rx="1"/><rect x="13.5" y="13.5" width="7" height="7" rx="1"/><rect x="3.5" y="13.5" width="7" height="7" rx="1"/></svg></span>
+      <span class="lbl">作品集</span>
+    </button>
+    <button data-tab="practice">
+      <span class="ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.4" fill="currentColor" stroke="none"/></svg></span>
+      <span class="lbl">练习</span>
+    </button>
+    <button data-tab="about">
+      <span class="ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><line x1="12" y1="11" x2="12" y2="16.5"/><circle cx="12" cy="7.6" r="0.5" fill="currentColor" stroke="none"/></svg></span>
+      <span class="lbl">创新</span>
+    </button>
+  </nav>
+</header>
+
+<main>
+  <!-- ===================== 创作 ===================== -->
+  <section class="section active" id="sec-studio">
+    <div class="page-head">
+      <h2>创作台</h2>
+      <p>选择折法、在折纸上绘制裁剪线，右侧实时呈现展开后的团花。支持描边与填充两种笔法，剪完即可保存或导出。</p>
+    </div>
+    <div class="studio">
+      <!-- 左：折叠/参数 -->
+      <div class="card" id="leftPanel"><!-- 由 JS 渲染 --></div>
+
+      <!-- 中：折叠台 -->
+      <div class="canvas-wrap">
+        <div class="stage">
+          <canvas id="foldCanvas" class="draw" width="360" height="360"></canvas>
+        </div>
+        <div class="toolbar">
+          <button class="btn small" id="undoBtn">↶ 撤销</button>
+          <button class="btn small" id="redoBtn">↷ 重做</button>
+          <button class="btn small" id="clearBtn">清空</button>
+        </div>
+        <div class="hint" id="studioHint">在红色折纸上用手指/鼠标绘制裁剪线，右侧实时呈现展开后的团花效果。</div>
+      </div>
+
+      <!-- 右：预览与操作 -->
+      <div class="card preview-box">
+        <h3>实时展开</h3>
+        <canvas id="previewCanvas" width="360" height="360"></canvas>
+        <div class="toolbar">
+          <button class="btn small toggle" id="auxBtn">辅助线</button>
+          <button class="btn small toggle" id="draftBtn">线稿</button>
+        </div>
+        <div class="toolbar" style="margin-top:6px;">
+          <button class="btn gold" id="unfoldBtn">▶ 展开动画</button>
+        </div>
+        <div class="toolbar" style="margin-top:6px;">
+          <button class="btn primary" id="saveBtn">保存到作品集</button>
+          <button class="btn" id="exportBtn">导出PNG</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== 作品集 ===================== -->
+  <section class="section" id="sec-gallery">
+    <div class="page-head">
+      <h2>作品集</h2>
+      <p>你剪出的每一幅团花都会保存在此，点击可查看成品，并切换「线稿 / 辅助线」视图。</p>
+    </div>
+    <div class="card">
+      <div class="list-bar">
+        <h3 style="margin:0;">我的作品集</h3>
+        <button class="btn small danger" id="clearAllBtn">清空全部</button>
+      </div>
+      <div class="gallery" id="galleryGrid"></div>
+      <div class="empty" id="galleryEmpty">
+        <div class="em">✂</div>
+        <div class="t">还没有作品，去「创作」剪一幅并保存吧。</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== 练习 ===================== -->
+  <section class="section" id="sec-practice">
+    <div class="page-head">
+      <h2>练习模式</h2>
+      <p>对照半透明参考线手动裁剪，系统以重合度自动评分，帮你稳步提升剪纸熟练度。</p>
+    </div>
+    <div class="studio">
+      <div class="card">
+        <h3>练习模板</h3>
+        <div class="practice-targets" id="practiceTargets"></div>
+        <div class="row" style="margin-top:14px;">
+          <label>幽灵线</label>
+          <button class="btn small toggle active" id="ghostBtn">参考显隐</button>
+        </div>
+        <div class="hint">对照模板的半透明参考线，手动裁剪出相同图案，完成后点击「评分」。</div>
+      </div>
+      <div class="canvas-wrap">
+        <div class="stage">
+          <canvas id="practiceCanvas" class="draw" width="360" height="360"></canvas>
+        </div>
+        <div class="toolbar">
+          <button class="btn small" id="pUndoBtn">↶ 撤销</button>
+          <button class="btn small" id="pClearBtn">清空</button>
+          <button class="btn gold" id="scoreBtn">评分</button>
+        </div>
+        <div class="hint">练习使用「六角六折」，剪出十二瓣对称团花。评分依据你剪出的镂空与模板的重合度。</div>
+      </div>
+      <div class="card preview-box">
+        <h3>我的展开</h3>
+        <canvas id="practicePreview" width="280" height="280"></canvas>
+        <div id="scoreResult" class="score-badge" style="visibility:hidden;">—</div>
+        <div id="scoreMsg" class="hint" style="min-height:18px;"></div>
+        <button class="btn primary" id="pSaveBtn" style="margin-top:8px;">保存为作品</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== 关于/创新 ===================== -->
+  <section class="section innov" id="sec-about">
+    <div class="card">
+      <h2>关于「剪纸坊」与相较原爆红 App 的创新设计点</h2>
+      <p class="lead">本应用在曾经网络爆红的「中国留学生剪纸模拟」思路（折叠 → 画线 → 展开）之上，做了系统性功能补全与体验升级。核心创新如下：</p>
+      <div class="item"><span class="num">1</span><b>多种折叠方式 + 对称可视化</b>：原版多为单一对折，本作内置 方形对折 / 三角三折 / 四角四折 / 六角六折 / 八角八折 五种折法，并用几何方式精确还原每种折法的<b>旋转 + 镜像</b>对称群，可一键切换「镜像对称」得到 Dₙ 或 Cₙ 对称。</div>
+      <div class="item"><span class="num">2</span><b>实时展开预览</b>：原版需点「展开」才看得到结果；本作在折叠台上落笔的同时，右侧即<b>实时渲染</b>整幅展开后的团花，所见即所得。</div>
+      <div class="item"><span class="num">3</span><b>展开动画</b>：提供「扇面展开」动画，从折叠态逐瓣旋转铺开，直观呈现「折 → 剪 → 展」的物理过程。</div>
+      <div class="item"><span class="num">4</span><b>作品集与持久化</b>：完成的作品自动存入浏览器（localStorage），可随时回看缩略图，<b>点击查看成品</b>，并切换「线稿 / 辅助线」视图——线稿展示裁剪路径蓝图，辅助线展示折痕与对称轴。</div>
+      <div class="item"><span class="num">5</span><b>练习模式（原版没有）</b>：内置练习模板，以半透明「幽灵参考线」引导用户手动裁剪，并用 <b>IoU 重合度算法</b>自动评分，帮助提升剪纸熟练度。</div>
+      <div class="item"><span class="num">6</span><b>双裁剪模式</b>：支持「描边」（剪出线条纹样）与「填充」（剪出块面镂空）两种笔法，更接近真实窗花的线与面。</div>
+      <div class="item"><span class="num">7</span><b>移动端优先的触控体验</b>：基于 Pointer 事件统一支持手指与鼠标，禁用页面滚动干扰，笔触按 DPR 高清渲染，手机上也能顺手剪。</div>
+      <div class="item"><span class="num">8</span><b>导出与分享</b>：一键导出 PNG，方便保存或分享成品。</div>
+      <p style="margin-top:14px;">
+        <span class="tag">折叠选择</span><span class="tag">触控裁剪</span><span class="tag">实时展开</span>
+        <span class="tag">效果查看</span><span class="tag">作品集</span><span class="tag">练习模式</span>
+      </p>
+    </div>
+  </section>
+</main>
+
+<footer>剪纸坊 · 纯前端单文件实现 · 直接双击 index.html 即可运行</footer>
+
+<!-- Toast 通知容器 -->
+<div class="toast-wrap" id="toastWrap"></div>
+
+<!-- 轻确认弹层 -->
+<div class="confirm-mask" id="confirmMask">
+  <div class="confirm">
+    <h3 id="confirmTitle">确认</h3>
+    <p id="confirmMsg"></p>
+    <div class="row">
+      <button class="btn" id="confirmCancel">取消</button>
+      <button class="btn primary" id="confirmOk">确认</button>
+    </div>
+  </div>
+</div>
+
+<!-- 作品详情弹窗 -->
+<div class="modal-mask" id="workModal">
+  <div class="modal">
+    <span class="close" id="workClose">×</span>
+    <h2 id="workTitle">作品</h2>
+    <div style="display:flex;justify-content:center;">
+      <canvas id="workBig" width="360" height="360"></canvas>
+    </div>
+    <div class="toolbar" style="justify-content:center;margin:12px 0;">
+      <button class="btn small toggle" id="workDraftBtn">线稿</button>
+      <button class="btn small toggle" id="workAuxBtn">辅助线</button>
+      <button class="btn small" id="workOpenBtn">在创作台打开</button>
+      <button class="btn small" id="workDelBtn">删除</button>
+    </div>
+    <div class="hint" id="workMeta"></div>
+  </div>
+</div>
+
+<script>
+"use strict";
+(function(){
+  /* ===================== 常量 ===================== */
+  const SIZE = 360;            // 画布 CSS 尺寸
+  const C = SIZE/2;            // 圆心
+  const R = 165;               // 纸张半径
+  const STORE_KEY = "jianzhi_works_v1";
+
+  /* ===================== 折叠定义 =====================
+     shape:'rect'  → 方形对折（右半为绘制域，镜像得到左右对称）
+     shape:'sector'→ 圆形团花，绘制域为顶角 360/n 的扇形，
+                     n 次旋转 + 可选镜像 = D_n / C_n 对称群
+  ==================================================== */
+  const FOLDS = {
+    half:  {id:"half",  name:"方形对折", shape:"rect",   n:1, mirror:true, desc:"沿中线对折，左右对称"},
+    tri:   {id:"tri",   name:"三角三折", shape:"sector", n:3, mirror:true, desc:"三折六瓣团花"},
+    quad:  {id:"quad",  name:"四角四折", shape:"sector", n:4, mirror:true, desc:"经典四折窗花"},
+    six:   {id:"six",   name:"六角六折", shape:"sector", n:6, mirror:true, desc:"十二瓣雪花/团花"},
+    eight: {id:"eight", name:"八角八折", shape:"sector", n:8, mirror:true, desc:"十六瓣精细窗花"},
+  };
+
+  const PAPER_COLORS = [
+    {name:"中国红", v:"#c1272d"},
+    {name:"朱砂",   v:"#9e1b1b"},
+    {name:"胭脂",   v:"#d4566b"},
+    {name:"靛蓝",   v:"#1f4e79"},
+    {name:"黛绿",   v:"#2e6b4f"},
+    {name:"墨黑",   v:"#2b2b2b"},
+  ];
+
+  /* ===================== 全局状态 ===================== */
+  const state = {
+    fold: Object.assign({}, FOLDS.six),
+    strokes: [],          // 当前折叠域内的裁剪笔画（点数组）
+    brush: 7,
+    brushMode: "outline", // outline | fill
+    paperColor: "#c1272d",
+    mirror: true,
+    showAux: false,
+    showDraft: false,
+    history: [],          // 撤销栈
+    future: [],           // 重做栈
+    animating: false,
+    // 练习相关
+    mode: "create",       // create | practice
+    ghost: null,          // 幽灵参考线笔画
+    practiceTarget: null,
+    showGhost: true,
+    // 弹窗作品
+    activeWork: null,
+  };
+
+  /* ===================== 几何变换 ===================== */
+  function rotatePt(p, ang){
+    const c=Math.cos(ang), s=Math.sin(ang);
+    const dx=p.x-C, dy=p.y-C;
+    return {x:C+dx*c-dy*s, y:C+dx*s+dy*c};
+  }
+  // 过点 C、方向角 phi 的直线镜像
+  function reflectPt(p, phi){
+    const c=Math.cos(phi), s=Math.sin(phi);
+    const dx=p.x-C, dy=p.y-C;
+    const x1= dx*c + dy*s;
+    const y1=-dx*s + dy*c;
+    const x2= x1;          // 关于 x 轴翻转
+    const y2=-y1;
+    const x3= x2*c - y2*s;
+    const y3= x2*s + y2*c;
+    return {x:C+x3, y:C+y3};
+  }
+  // 生成某折法下全部对称副本（旋转 + 扇区内镜像）
+  // 镜像必须先绕扇区自身平分线(-PI/2)做，再随扇区一起旋转，
+  // 这样每个扇区内部关于其平分线对称，相邻扇区在折痕处互为镜像 → D_n 对称。
+  function allCopies(fold, strokes){
+    const out=[];
+    const n=fold.n, theta=2*Math.PI/n;
+    const mirrored = fold.mirror ? strokes.map(s=>s.map(p=>reflectPt(p,-Math.PI/2))) : null;
+    for(let k=0;k<n;k++){
+      const ang=k*theta;
+      for(const s of strokes) out.push(s.map(p=>rotatePt(p,ang)));
+      if(mirrored) for(const s of mirrored) out.push(s.map(p=>rotatePt(p,ang)));
+    }
+    return out;
+  }
+
+  /* ===================== 画布与 DPR ===================== */
+  function setupCanvas(cv){
+    const dpr = window.devicePixelRatio||1;
+    const cssW = parseInt(cv.getAttribute("width"),10); // 逻辑分辨率（统一 360）
+    cv.width = cssW*dpr; cv.height = cssW*dpr;
+    const ctx=cv.getContext("2d");
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+    return ctx;
+  }
+  const foldCanvas = document.getElementById("foldCanvas");
+  const previewCanvas = document.getElementById("previewCanvas");
+  const foldCtx = setupCanvas(foldCanvas);
+  const previewCtx = setupCanvas(previewCanvas);
+
+  /* ===================== 路径辅助 ===================== */
+  function sectorPath(ctx, fold){
+    const half=Math.PI/fold.n;
+    ctx.beginPath();
+    ctx.moveTo(C,C);
+    ctx.arc(C,C,R,-Math.PI/2-half,-Math.PI/2+half);
+    ctx.closePath();
+  }
+  function rectDomainPath(ctx){ // 右半方
+    ctx.beginPath();
+    ctx.rect(C, C-R, R, 2*R);
+    ctx.closePath();
+  }
+  function fullCirclePath(ctx){ ctx.beginPath(); ctx.arc(C,C,R,0,Math.PI*2); ctx.closePath(); }
+  function fullSquarePath(ctx){ ctx.beginPath(); ctx.rect(C-R,C-R,2*R,2*R); ctx.closePath(); }
+
+  function clipDomain(ctx, fold){
+    if(fold.shape==="rect") rectDomainPath(ctx);
+    else sectorPath(ctx, fold);
+    ctx.clip();
+  }
+  function domainPaper(ctx, fold, color){
+    ctx.fillStyle=color;
+    if(fold.shape==="rect") rectDomainPath(ctx);
+    else sectorPath(ctx, fold);
+    ctx.fill();
+  }
+
+  /* ===================== 笔画绘制 ===================== */
+  function closedish(s){ return s.length>2 && Math.hypot(s[0].x-s[s.length-1].x, s[0].y-s[s.length-1].y)<14; }
+  function paintStrokes(ctx, list, brush, mode, color){
+    ctx.strokeStyle=color; ctx.fillStyle=color;
+    ctx.lineWidth=brush; ctx.lineCap="round"; ctx.lineJoin="round";
+    for(const s of list){
+      if(s.length<2) continue;
+      ctx.beginPath();
+      s.forEach((p,i)=> i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y));
+      if(mode==="fill" || closedish(s)) ctx.closePath();
+      if(mode==="fill" || closedish(s)) ctx.fill();
+      ctx.stroke();
+    }
+  }
+  // 镂空：destination-out
+  function paintCuts(ctx, list, brush, mode){
+    ctx.save();
+    ctx.globalCompositeOperation="destination-out";
+    paintStrokes(ctx, list, brush, mode, "#000");
+    ctx.restore();
+  }
+
+  /* ===================== 折叠台绘制 ===================== */
+  function drawFolded(){
+    const ctx=foldCtx;
+    ctx.clearRect(0,0,SIZE,SIZE);
+    ctx.save();
+    clipDomain(ctx, state.fold);
+    // 折纸底色 + 轻微纸纹
+    domainPaper(ctx, state.fold, state.paperColor);
+    // 折痕虚线
+    ctx.save();
+    ctx.strokeStyle="rgba(255,255,255,.35)"; ctx.lineWidth=1.5; ctx.setLineDash([6,5]);
+    if(state.fold.shape==="rect"){
+      ctx.beginPath(); ctx.moveTo(C,C-R); ctx.lineTo(C,C+R); ctx.stroke();
+    }else{
+      ctx.beginPath(); ctx.moveTo(C,C); ctx.lineTo(C, C-R); ctx.stroke();
+    }
+    ctx.restore();
+    // 幽灵参考线（练习）
+    if(state.mode==="practice" && state.showGhost && state.ghost){
+      paintStrokes(ctx, state.ghost, state.brush, state.brushMode, "rgba(255,255,255,.55)");
+    }
+    // 已画笔画（深色，表示裁剪线）
+    paintStrokes(ctx, state.strokes, state.brush, state.brushMode, "#3a0d0c");
+    // 镜像预览（折叠态下展示对称性）
+    if(state.fold.mirror){
+      paintStrokes(ctx, state.strokes.map(s=>s.map(p=>reflectPt(p,-Math.PI/2))), state.brush, state.brushMode, "rgba(58,13,12,.45)");
+    }
+    ctx.restore();
+  }
+
+  /* ===================== 展开渲染 ===================== */
+  function renderUnfolded(ctx, fold, strokes, opts){
+    opts=opts||{};
+    const mode=opts.mode||"cut";      // cut | draft
+    const showAux=!!opts.showAux;
+    const brush=opts.brush!=null?opts.brush:state.brush;
+    const bmode=opts.brushMode||state.brushMode;
+    ctx.clearRect(0,0,SIZE,SIZE);
+    if(mode==="cut"){
+      // 背景（透过镂空可见）
+      const g=ctx.createRadialGradient(C,C-30,20,C,C,R+30);
+      g.addColorStop(0,"#eaf3ff"); g.addColorStop(1,"#cfe0f2");
+      ctx.fillStyle=g; ctx.fillRect(0,0,SIZE,SIZE);
+      // 纸张
+      ctx.fillStyle=state.paperColor;
+      if(fold.shape==="rect") fullSquarePath(ctx); else fullCirclePath(ctx);
+      ctx.fill();
+      // 镂空
+      paintCuts(ctx, allCopies(fold,strokes), brush, bmode);
+    }else{ // draft 线稿
+      ctx.fillStyle="#fffaf2"; ctx.fillRect(0,0,SIZE,SIZE);
+      paintStrokes(ctx, allCopies(fold,strokes), Math.max(2,brush*0.7), bmode, "#b3201e");
+    }
+    if(showAux) drawAux(ctx, fold, mode);
+  }
+  function drawAux(ctx, fold, mode){
+    ctx.save();
+    ctx.strokeStyle = mode==="draft" ? "rgba(60,60,60,.5)" : "rgba(255,255,255,.7)";
+    ctx.lineWidth=1; ctx.setLineDash([5,5]);
+    if(fold.shape==="rect"){
+      ctx.beginPath(); ctx.moveTo(C,C-R); ctx.lineTo(C,C+R); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(C-R,C); ctx.lineTo(C+R,C); ctx.stroke();
+    }else{
+      const n=fold.n;
+      for(let m=0;m<2*n;m++){
+        const a=-Math.PI/2 + m*Math.PI/n;
+        ctx.beginPath(); ctx.moveTo(C,C); ctx.lineTo(C+R*Math.cos(a), C+R*Math.sin(a)); ctx.stroke();
+      }
+    }
+    ctx.restore();
+  }
+
+  function schedulePreview(){
+    if(state._raf) return;
+    state._raf = requestAnimationFrame(()=>{
+      state._raf=null;
+      const live = state.strokes.concat(state._drawing?[state._drawing]:[]);
+      renderUnfolded(previewCtx, state.fold, live, {mode:state.showDraft?"draft":"cut", showAux:state.showAux});
+    });
+  }
+
+  /* ===================== 撤销/重做/清空 ===================== */
+  function clone(a){ return a.map(s=>s.map(p=>({x:p.x,y:p.y}))); }
+  function pushUndo(){ state.history.push(clone(state.strokes)); if(state.history.length>60) state.history.shift(); state.future=[]; }
+  function undo(){ if(!state.history.length) return; state.future.push(clone(state.strokes)); state.strokes=state.history.pop(); refresh(); }
+  function redo(){ if(!state.future.length) return; state.history.push(clone(state.strokes)); state.strokes=state.future.pop(); refresh(); }
+  function clearStrokes(){ if(!state.strokes.length) return; pushUndo(); state.strokes=[]; refresh(); }
+
+  function refresh(){ drawFolded(); schedulePreview(); updateUndoButtons(); }
+
+  /* ===================== 触控裁剪 ===================== */
+  function pointInDomain(p, fold){
+    const d=Math.hypot(p.x-C, p.y-C);
+    if(d>R) return false;
+    if(fold.shape==="rect") return p.x>=C-1 && p.y>=C-R && p.y<=C+R;
+    let a=Math.atan2(p.y-C, p.x-C)-(-Math.PI/2);
+    while(a> Math.PI) a-=2*Math.PI;
+    while(a<-Math.PI) a+=2*Math.PI;
+    return Math.abs(a) <= Math.PI/fold.n;
+  }
+  function bindDraw(cv, ctx, onEnd){
+    let drawing=false, current=null;
+    function pos(e){
+      const r=cv.getBoundingClientRect();
+      return {x:(e.clientX-r.left)*(SIZE/r.width), y:(e.clientY-r.top)*(SIZE/r.height)};
+    }
+    cv.addEventListener("pointerdown", e=>{
+      if(state.animating) return;
+      drawing=true; current=[]; state._drawing=current;
+      cv.setPointerCapture(e.pointerId);
+      add(e);
+    });
+    cv.addEventListener("pointermove", e=>{
+      if(!drawing) return; add(e);
+      drawFolded(); schedulePreview();
+    });
+    function finish(){
+      if(!drawing) return; drawing=false; state._drawing=null;
+      if(current && current.length>1){ pushUndo(); state.strokes.push(current); }
+      current=null; refresh(); if(onEnd) onEnd();
+    }
+    cv.addEventListener("pointerup", finish);
+    cv.addEventListener("pointercancel", finish);
+    cv.addEventListener("pointerleave", finish);
+    function add(e){
+      const p=pos(e);
+      if(!pointInDomain(p, state.fold)) return;
+      if(current.length){
+        const last=current[current.length-1];
+        if(Math.hypot(p.x-last.x,p.y-last.y)<2) return;
+      }
+      current.push(p);
+    }
+  }
+  bindDraw(foldCanvas, foldCtx);
+
+  /* ===================== 展开动画 ===================== */
+  function animateUnfold(){
+    if(state.animating) return;
+    state.animating=true;
+    const n=state.fold.n, theta=2*Math.PI/n;
+    const dur=1300, stagger=70, span=Math.max(200, dur-(n-1)*stagger);
+    const start=performance.now();
+    function ease(t){ return 1-Math.pow(1-t,3); }
+    function frame(now){
+      const t=now-start;
+      previewCtx.clearRect(0,0,SIZE,SIZE);
+      const g=previewCtx.createRadialGradient(C,C-30,20,C,C,R+30);
+      g.addColorStop(0,"#eaf3ff"); g.addColorStop(1,"#cfe0f2");
+      previewCtx.fillStyle=g; previewCtx.fillRect(0,0,SIZE,SIZE);
+      previewCtx.fillStyle=state.paperColor;
+      if(state.fold.shape==="rect") fullSquarePath(previewCtx); else fullCirclePath(previewCtx);
+      previewCtx.fill();
+      const copies=[];
+      for(let k=0;k<n;k++){
+        const local=Math.min(1,Math.max(0,(t-k*stagger)/span));
+        const e=ease(local);
+        const ang=k*theta*e;
+        for(const s of state.strokes) copies.push(s.map(p=>rotatePt(p,ang)));
+        if(state.fold.mirror){
+          for(const s of state.strokes) copies.push(s.map(p=>rotatePt(reflectPt(p,-Math.PI/2),ang)));
+        }
+      }
+      paintCuts(previewCtx, copies, state.brush, state.brushMode);
+      if(t<dur){ requestAnimationFrame(frame); }
+      else{
+        state.animating=false;
+        renderUnfolded(previewCtx, state.fold, state.strokes, {mode:state.showDraft?"draft":"cut", showAux:state.showAux});
+      }
+    }
+    requestAnimationFrame(frame);
+  }
+
+  /* ===================== 作品集持久化 ===================== */
+  function loadWorks(){ try{ return JSON.parse(localStorage.getItem(STORE_KEY))||[]; }catch(e){ return []; } }
+  function saveWorks(w){ localStorage.setItem(STORE_KEY, JSON.stringify(w)); }
+  function makeThumb(){
+    const off=document.createElement("canvas");
+    off.width=SIZE; off.height=SIZE;
+    const octx=off.getContext("2d");
+    renderUnfolded(octx, state.fold, state.strokes, {mode:"cut"});
+    return off.toDataURL("image/png");
+  }
+  function saveCurrent(){
+    if(!state.strokes.length){ toast("先剪点什么再保存吧～","warn"); return; }
+    const works=loadWorks();
+    const w={
+      id:"w"+Date.now(),
+      name:"团花 · "+state.fold.name,
+      foldId:state.fold.id, foldName:state.fold.name,
+      brush:state.brush, brushMode:state.brushMode,
+      paperColor:state.paperColor, mirror:state.fold.mirror,
+      strokes:clone(state.strokes),
+      ts:Date.now(),
+      thumb:makeThumb(),
+    };
+    works.unshift(w); saveWorks(works);
+    renderGallery();
+    toast("已保存到作品集！","ok");
+  }
+
+  function renderGallery(){
+    const grid=document.getElementById("galleryGrid");
+    const works=loadWorks();
+    document.getElementById("galleryEmpty").style.display = works.length? "none":"block";
+    grid.innerHTML="";
+    works.forEach(w=>{
+      const el=document.createElement("div");
+      el.className="work";
+      const d=new Date(w.ts);
+      el.innerHTML=`<img src="${w.thumb}" alt=""><div class="meta"><div class="t">${w.name}</div>
+        <div class="d">${d.getMonth()+1}月${d.getDate()}日 · ${w.foldName}</div></div>`;
+      el.onclick=()=>openWork(w);
+      grid.appendChild(el);
+    });
+  }
+
+  /* ===================== 作品详情弹窗 ===================== */
+  const workModal=document.getElementById("workModal");
+  const workBig=document.getElementById("workBig");
+  const workBigCtx=setupCanvas(workBig);
+  let workView={draft:false, aux:false};
+  function renderWorkBig(){
+    const w=state.activeWork; if(!w) return;
+    const fold=FOLDS[w.foldId];
+    renderUnfolded(workBigCtx, fold, w.strokes, {mode:workView.draft?"draft":"cut", showAux:workView.aux});
+  }
+  function openWork(w){
+    state.activeWork=w; workView={draft:false,aux:false};
+    document.getElementById("workTitle").textContent=w.name;
+    document.getElementById("workMeta").textContent=`折法：${w.foldName} · 纸张：${w.paperColor} · 笔画数：${w.strokes.length}`;
+    document.getElementById("workDraftBtn").classList.remove("active");
+    document.getElementById("workAuxBtn").classList.remove("active");
+    renderWorkBig(); workModal.classList.add("show");
+  }
+  document.getElementById("workClose").onclick=()=>workModal.classList.remove("show");
+  document.getElementById("workDraftBtn").onclick=function(){ workView.draft=!workView.draft; this.classList.toggle("active",workView.draft); renderWorkBig(); };
+  document.getElementById("workAuxBtn").onclick=function(){ workView.aux=!workView.aux; this.classList.toggle("active",workView.aux); renderWorkBig(); };
+  document.getElementById("workDelBtn").onclick=function(){
+    const id=state.activeWork && state.activeWork.id;
+    confirmDialog("删除作品", "确定删除这件作品吗？此操作不可撤销。", ()=>{
+      let works=loadWorks().filter(x=>x.id!==id);
+      saveWorks(works); workModal.classList.remove("show"); renderGallery();
+      toast("已删除该作品","info");
+    });
+  };
+  document.getElementById("workOpenBtn").onclick=function(){
+    const w=state.activeWork; workModal.classList.remove("show");
+    // 切到创作台并载入
+    switchTab("studio");
+    state.mode="create";
+    state.fold=Object.assign({}, FOLDS[w.foldId]);
+    state.fold.mirror=w.mirror;
+    state.mirror=w.mirror;
+    state.strokes=clone(w.strokes);
+    state.paperColor=w.paperColor; state.brush=w.brush; state.brushMode=w.brushMode;
+    state.history=[]; state.future=[];
+    buildLeftPanel(); drawFolded(); schedulePreview();
+  };
+
+  /* ===================== 左栏（折叠/参数） ===================== */
+  function foldDiagram(fold){
+    const c=document.createElement("canvas"); c.width=84; c.height=84;
+    const x=c.getContext("2d"); const cc=42, rr=34;
+    x.fillStyle="#c1272d";
+    if(fold.shape==="rect"){
+      x.fillRect(cc,cc-rr,rr,2*rr);
+    }else{
+      const half=Math.PI/fold.n;
+      x.beginPath(); x.moveTo(cc,cc); x.arc(cc,cc,rr,-Math.PI/2-half,-Math.PI/2+half); x.closePath(); x.fill();
+    }
+    x.strokeStyle="rgba(255,255,255,.6)"; x.lineWidth=1.5; x.setLineDash([4,3]);
+    x.beginPath(); x.moveTo(cc,cc); x.lineTo(cc,cc-rr); x.stroke();
+    return c;
+  }
+  function buildLeftPanel(){
+    const p=document.getElementById("leftPanel");
+    let html=`<h3>选择折叠</h3><div class="fold-grid">`;
+    Object.values(FOLDS).forEach(f=>{
+      html+=`<div class="fold-card ${state.fold.id===f.id?'active':''}" data-fold="${f.id}">
+        <div class="fc-cv"></div><div class="nm">${f.name}</div><div class="ds">${f.desc}</div></div>`;
+    });
+    html+=`</div>`;
+    html+=`<h3 style="margin-top:14px;">裁剪笔法</h3>
+      <div class="toolbar" style="justify-content:flex-start;">
+        <button class="btn small toggle ${state.brushMode==='outline'?'active':''}" id="modeOutline">描边</button>
+        <button class="btn small toggle ${state.brushMode==='fill'?'active':''}" id="modeFill">填充</button>
+      </div>
+      <div class="row"><label>笔触</label><input type="range" id="brushRange" min="2" max="20" value="${state.brush}"></div>
+      <h3 style="margin-top:6px;">纸张颜色</h3>
+      <div class="swatches" id="swatches"></div>
+      <div class="row" style="margin-top:12px;"><label>镜像</label>
+        <button class="btn small toggle ${state.mirror?'active':''}" id="mirrorBtn">镜像对称</button></div>
+      <h3 style="margin-top:16px;">灵感模板</h3>
+      <div class="inspire-grid" id="inspireGrid"></div>
+      <div class="hint" style="margin-top:6px;">点击载入预设纹样，当作起点继续创作。</div>`;
+    p.innerHTML=html;
+    // 折叠示意图
+    p.querySelectorAll(".fold-card").forEach(card=>{
+      const f=FOLDS[card.getAttribute("data-fold")];
+      card.querySelector(".fc-cv").appendChild(foldDiagram(f));
+      card.onclick=()=>{
+        if(state.animating) return;
+        state.fold=Object.assign({}, f);
+        if(state.fold.shape==="rect") state.mirror=true; // 方形对折必须镜像
+        state.fold.mirror=state.mirror;
+        state.strokes=[]; state.history=[]; state.future=[];
+        buildLeftPanel(); drawFolded(); schedulePreview();
+      };
+    });
+    // 笔法
+    document.getElementById("modeOutline").onclick=()=>setMode("outline");
+    document.getElementById("modeFill").onclick=()=>setMode("fill");
+    document.getElementById("brushRange").oninput=e=>{ state.brush=+e.target.value; drawFolded(); schedulePreview(); };
+    // 色板
+    const sw=document.getElementById("swatches");
+    PAPER_COLORS.forEach(c=>{
+      const d=document.createElement("div");
+      d.className="sw"+(c.v===state.paperColor?" active":"");
+      d.style.background=c.v; d.title=c.name;
+      d.onclick=()=>{ state.paperColor=c.v; buildLeftPanel(); drawFolded(); schedulePreview(); };
+      sw.appendChild(d);
+    });
+    // 镜像
+    document.getElementById("mirrorBtn").onclick=function(){
+      state.mirror=!state.mirror; state.fold.mirror=state.mirror;
+      this.classList.toggle("active",state.mirror); drawFolded(); schedulePreview();
+    };
+    // 灵感模板
+    const ig=document.getElementById("inspireGrid");
+    INSPIRE.forEach(t=>{
+      const card=document.createElement("div");
+      card.className="inspire-card";
+      const c=document.createElement("canvas"); c.width=72; c.height=72;
+      drawInspireThumb(c.getContext("2d"), t);
+      card.appendChild(c);
+      const nm=document.createElement("div"); nm.className="nm"; nm.textContent=t.name;
+      card.appendChild(nm);
+      card.onclick=()=>loadInspire(t);
+      ig.appendChild(card);
+    });
+  }
+  function setMode(m){
+    state.brushMode=m; buildLeftPanel(); drawFolded(); schedulePreview();
+  }
+
+  /* ===================== 练习模式 ===================== */
+  // 在六角六折扇区内定义参考图案（deg 以向上为 0，向右为正）
+  function P(r,deg){ const a=deg*Math.PI/180; return {x:C+r*Math.sin(a), y:C-r*Math.cos(a)}; }
+  function arcStroke(r0,r1,deg0,deg1,steps){
+    const s=[]; for(let i=0;i<=steps;i++){ const d=deg0+(deg1-deg0)*i/steps; s.push(P(r0+(r1-r0)*i/steps, d)); } return s;
+  }
+
+  /* ===================== 灵感模板（六角六折起点纹样） ===================== */
+  const INSPIRE=[
+    { id:"i1", name:"放射纹", strokes:[
+        [P(40,-18),P(150,-18)], [P(40,0),P(156,0)], [P(40,18),P(150,18)],
+        [P(150,-12),P(165,0),P(150,12)]
+      ]},
+    { id:"i2", name:"花瓣", strokes:[
+        [P(45,0),P(82,-24),P(126,0),P(82,24)],
+        [P(122,0),P(150,-15),P(166,0),P(150,15)]
+      ]},
+    { id:"i3", name:"窗格环", strokes:[
+        arcStroke(118,118,-28,28,10), arcStroke(150,150,-24,24,10),
+        [P(118,-26),P(150,-22)],[P(118,26),P(150,22)],[P(118,0),P(150,0)]
+      ]},
+  ];
+  function drawInspireThumb(x, t){
+    const cc=36, rr=30, sc=rr/R;
+    x.fillStyle="#c1272d";
+    x.beginPath(); x.moveTo(cc,cc); x.arc(cc,cc,rr,-Math.PI/2-Math.PI/6,-Math.PI/2+Math.PI/6); x.closePath(); x.fill();
+    const scaled=t.strokes.map(s=>s.map(p=>({x:cc+(p.x-C)*sc, y:cc+(p.y-C)*sc})));
+    const drawSet=(set,style,w)=>{ x.strokeStyle=style; x.lineWidth=w; x.lineCap="round"; x.lineJoin="round";
+      set.forEach(s=>{ if(s.length<2)return; x.beginPath(); s.forEach((p,i)=>i?x.lineTo(p.x,p.y):x.moveTo(p.x,p.y)); x.stroke(); }); };
+    drawSet(scaled,"#3a0d0c",1.4);
+    const mir=scaled.map(s=>s.map(p=>({x:cc-(p.x-cc), y:p.y})));
+    drawSet(mir,"rgba(58,13,12,.45)",1.4);
+  }
+  function loadInspire(t){
+    if(state.animating) return;
+    if(state.fold.id!=="six"){ state.fold=Object.assign({}, FOLDS.six); state.fold.mirror=state.mirror; }
+    state.strokes=clone(t.strokes);
+    state.history=[]; state.future=[];
+    buildLeftPanel(); drawFolded(); schedulePreview();
+    toast("已载入灵感模板：「"+t.name+"」","info");
+  }
+  const PRACTICE_TARGETS=[
+    { id:"t1", name:"六瓣放射", diff:"入门", strokes:[
+        [P(70,-22),P(150,-22)], [P(70,0),P(156,0)], [P(70,22),P(150,22)],
+        [P(150,-14),P(166,0),P(150,14)]
+      ]},
+    { id:"t2", name:"花瓣边饰", diff:"进阶", strokes:[
+        arcStroke(150,150,-26,26,12),
+        [P(55,-12),P(92,0),P(55,12)],
+        [P(120,-20),P(138,0),P(120,20)]
+      ]},
+    { id:"t3", name:"窗花心", diff:"熟练", strokes:[
+        [P(45,0),P(78,20),P(112,0),P(78,-20)],
+        [P(150,-25),P(166,-25),P(158,0)],
+        [P(150,0),P(168,0)],
+        [P(150,25),P(166,25),P(158,0)]
+      ]},
+  ];
+  const practiceCanvas=document.getElementById("practiceCanvas");
+  const practiceCtx=setupCanvas(practiceCanvas);
+  const practicePreview=document.getElementById("practicePreview");
+  const practicePrevCtx=setupCanvas(practicePreview);
+  const pState={
+    fold:FOLDS.six, strokes:[], brush:7, brushMode:"outline",
+    history:[], future:[], drawing:null,
+  };
+  function pClone(a){ return a.map(s=>s.map(p=>({x:p.x,y:p.y}))); }
+  function pPushUndo(){ pState.history.push(pClone(pState.strokes)); pState.future=[]; }
+  function drawPractice(){
+    const ctx=practiceCtx; ctx.clearRect(0,0,SIZE,SIZE); ctx.save();
+    clipDomain(ctx, pState.fold);
+    domainPaper(ctx, pState.fold, "#c1272d");
+    if(state.showGhost && state.practiceTarget){
+      paintStrokes(ctx, state.practiceTarget.strokes, pState.brush, pState.brushMode, "rgba(255,255,255,.6)");
+    }
+    paintStrokes(ctx, pState.strokes, pState.brush, pState.brushMode, "#3a0d0c");
+    if(pState.fold.mirror) paintStrokes(ctx, pState.strokes.map(s=>s.map(p=>reflectPt(p,-Math.PI/2))), pState.brush, pState.brushMode, "rgba(58,13,12,.45)");
+    ctx.restore();
+  }
+  function pPreview(){
+    const live=pState.strokes.concat(pState.drawing?[pState.drawing]:[]);
+    renderUnfolded(practicePrevCtx, pState.fold, live, {mode:"cut"});
+  }
+  function pRefresh(){ drawPractice(); pPreview(); updatePracticeButtons(); }
+  function pBind(){
+    let drawing=false;
+    practiceCanvas.addEventListener("pointerdown",e=>{ if(state.animating)return; drawing=true; pState.drawing=[]; practiceCanvas.setPointerCapture(e.pointerId); add(e); });
+    practiceCanvas.addEventListener("pointermove",e=>{ if(!drawing)return; add(e); drawPractice(); pPreview(); });
+    function fin(){ if(!drawing)return; drawing=false; const cur=pState.drawing; pState.drawing=null; if(cur&&cur.length>1){ pPushUndo(); pState.strokes.push(cur);} pRefresh(); }
+    practiceCanvas.addEventListener("pointerup",fin);
+    practiceCanvas.addEventListener("pointercancel",fin);
+    practiceCanvas.addEventListener("pointerleave",fin);
+    function add(e){
+      const r=practiceCanvas.getBoundingClientRect();
+      const p={x:(e.clientX-r.left)*(SIZE/r.width), y:(e.clientY-r.top)*(SIZE/r.height)};
+      if(!pointInDomain(p,pState.fold)) return;
+      const cur=pState.drawing;
+      if(cur.length){ const l=cur[cur.length-1]; if(Math.hypot(p.x-l.x,p.y-l.y)<2) return; }
+      cur.push(p);
+    }
+  }
+  pBind();
+  function buildPracticeTargets(){
+    const box=document.getElementById("practiceTargets");
+    box.innerHTML="";
+    PRACTICE_TARGETS.forEach(t=>{
+      const card=document.createElement("div");
+      card.className="pt-card"+(state.practiceTarget&&state.practiceTarget.id===t.id?" active":"");
+      const c=document.createElement("canvas"); c.width=56;c.height=56;
+      const x=c.getContext("2d"); const cc=28,rr=24;
+      const half=Math.PI/6; x.fillStyle="#c1272d";
+      x.beginPath(); x.moveTo(cc,cc); x.arc(cc,cc,rr,-Math.PI/2-half,-Math.PI/2+half); x.closePath(); x.fill();
+      drawAuxMini(x,cc,rr,t);
+      card.appendChild(c);
+      const info=document.createElement("div");
+      info.innerHTML=`<div class="nm">${t.name}</div><div class="df">难度：${t.diff}</div>`;
+      card.appendChild(info);
+      card.onclick=()=>{ enterPractice(t); };
+      box.appendChild(card);
+    });
+  }
+  function drawAuxMini(x,cc,rr,t){
+    x.strokeStyle="rgba(255,255,255,.7)"; x.lineWidth=1; x.setLineDash([3,3]);
+    x.beginPath(); x.moveTo(cc,cc); x.lineTo(cc,cc-rr); x.stroke();
+    // 缩放到 56 画布
+    const sc=rr/165;
+    x.setLineDash([]); x.strokeStyle="#3a0d0c"; x.lineWidth=1.4;
+    t.strokes.forEach(s=>{
+      x.beginPath();
+      s.forEach((p,i)=>{ const X=cc+(p.x-C)*sc, Y=cc+(p.y-C)*sc; i?x.lineTo(X,Y):x.moveTo(X,Y); });
+      x.stroke();
+    });
+  }
+  function enterPractice(t){
+    state.practiceTarget=t; state.showGhost=true;
+    pState.strokes=[]; pState.history=[]; pState.future=[];
+    buildPracticeTargets(); pRefresh();
+    document.getElementById("scoreResult").style.visibility="hidden";
+    document.getElementById("scoreMsg").textContent="";
+    document.getElementById("ghostBtn").classList.add("active");
+  }
+  function makeMask(strokes, fold){
+    const off=document.createElement("canvas"); off.width=SIZE; off.height=SIZE;
+    const x=off.getContext("2d"); x.save(); clipDomain(x,fold);
+    x.fillStyle="#000"; // 透明底，白色填充表示镂空区域
+    paintStrokes(x, strokes, pState.brush, pState.brushMode, "#fff");
+    x.restore();
+    return x.getImageData(0,0,SIZE,SIZE).data;
+  }
+  function scorePractice(){
+    if(!state.practiceTarget){ toast("请先选择一个练习模板","warn"); return; }
+    if(!pState.strokes.length){ toast("先对照参考线剪几刀吧～","warn"); return; }
+    const a=makeMask(pState.strokes, pState.fold);
+    const b=makeMask(state.practiceTarget.strokes, pState.fold);
+    let inter=0,uni=0;
+    for(let i=3;i<a.length;i+=4){ const p=a[i]>10?1:0, q=b[i]>10?1:0; if(p||q)uni++; if(p&&q)inter++; }
+    const iou= uni? inter/uni : 0;
+    const pct=Math.round(iou*100);
+    const res=document.getElementById("scoreResult");
+    res.style.visibility="visible"; res.textContent=pct+"分";
+    let msg;
+    if(pct>=70) msg="优秀！镂空与模板高度吻合，手感很稳。";
+    else if(pct>=45) msg="良好，再注意边缘与弧度会更像。";
+    else msg="继续练习～试着让裁剪线更贴合半透明参考线。";
+    document.getElementById("scoreMsg").textContent=msg;
+  }
+  document.getElementById("ghostBtn").onclick=function(){
+    state.showGhost=!state.showGhost; this.classList.toggle("active",state.showGhost); drawPractice();
+  };
+  document.getElementById("scoreBtn").onclick=scorePractice;
+  document.getElementById("pUndoBtn").onclick=()=>{ if(!pState.history.length)return; pState.future.push(pClone(pState.strokes)); pState.strokes=pState.history.pop(); pRefresh(); };
+  document.getElementById("pClearBtn").onclick=()=>{ if(!pState.strokes.length)return; pPushUndo(); pState.strokes=[]; pRefresh(); };
+  document.getElementById("pSaveBtn").onclick=()=>{
+    if(!pState.strokes.length){ toast("先完成练习作品再保存～","warn"); return; }
+    const works=loadWorks();
+    works.unshift({
+      id:"w"+Date.now(), name:"练习 · "+state.practiceTarget.name,
+      foldId:"six", foldName:"六角六折", brush:pState.brush, brushMode:pState.brushMode,
+      paperColor:"#c1272d", mirror:true, strokes:pClone(pState.strokes),
+      ts:Date.now(), thumb:(function(){ const o=document.createElement("canvas");o.width=SIZE;o.height=SIZE; renderUnfolded(o.getContext("2d"),FOLDS.six,pState.strokes,{mode:"cut"}); return o.toDataURL("image/png"); })()
+    });
+    saveWorks(works); renderGallery(); toast("已保存到作品集！","ok");
+  };
+
+  /* ===================== 通知与轻确认 ===================== */
+  function toast(msg, type){
+    type=type||"info";
+    const wrap=document.getElementById("toastWrap");
+    const el=document.createElement("div");
+    el.className="toast "+type;
+    const ic = type==="ok" ? "✓" : type==="warn" ? "!" : "i";
+    el.innerHTML=`<span class="ic">${ic}</span><span></span>`;
+    el.querySelector("span:last-child").textContent=msg;
+    wrap.appendChild(el);
+    requestAnimationFrame(()=>el.classList.add("show"));
+    setTimeout(()=>{ el.classList.remove("show"); setTimeout(()=>el.remove(),260); }, 2200);
+  }
+  function confirmDialog(title, msg, onOk){
+    const mask=document.getElementById("confirmMask");
+    document.getElementById("confirmTitle").textContent=title;
+    document.getElementById("confirmMsg").textContent=msg;
+    const okBtn=document.getElementById("confirmOk");
+    const cancelBtn=document.getElementById("confirmCancel");
+    mask.classList.add("show");
+    function clean(){ mask.classList.remove("show"); okBtn.onclick=null; cancelBtn.onclick=null; }
+    okBtn.onclick=()=>{ clean(); if(onOk) onOk(); };
+    cancelBtn.onclick=clean;
+  }
+
+  /* ===================== 按钮可用态 ===================== */
+  function updateUndoButtons(){
+    const u=document.getElementById("undoBtn"), r=document.getElementById("redoBtn"), c=document.getElementById("clearBtn");
+    if(u) u.disabled=!state.history.length;
+    if(r) r.disabled=!state.future.length;
+    if(c) c.disabled=!state.strokes.length;
+  }
+  function updatePracticeButtons(){
+    const u=document.getElementById("pUndoBtn"), c=document.getElementById("pClearBtn");
+    if(u) u.disabled=!pState.history.length;
+    if(c) c.disabled=!pState.strokes.length;
+  }
+  document.getElementById("clearAllBtn").onclick=()=>{
+    const works=loadWorks();
+    if(!works.length){ toast("作品集已是空的","info"); return; }
+    confirmDialog("清空作品集","确定删除全部作品？此操作不可撤销。",()=>{
+      saveWorks([]); renderGallery(); toast("已清空作品集","info");
+    });
+  };
+
+  /* ===================== 标签切换 ===================== */
+  function switchTab(tab){
+    document.querySelectorAll("#tabs button").forEach(b=>b.classList.toggle("active", b.getAttribute("data-tab")===tab));
+    document.querySelectorAll(".section").forEach(s=>s.classList.remove("active"));
+    document.getElementById("sec-"+tab).classList.add("active");
+    if(tab==="gallery") renderGallery();
+    if(tab==="practice" && !state.practiceTarget) enterPractice(PRACTICE_TARGETS[0]);
+  }
+  document.querySelectorAll("#tabs button").forEach(b=>{
+    b.onclick=()=>switchTab(b.getAttribute("data-tab"));
+  });
+
+  /* ===================== 绑定按钮 ===================== */
+  document.getElementById("undoBtn").onclick=undo;
+  document.getElementById("redoBtn").onclick=redo;
+  document.getElementById("clearBtn").onclick=clearStrokes;
+  document.getElementById("auxBtn").onclick=function(){ state.showAux=!state.showAux; this.classList.toggle("active",state.showAux); schedulePreview(); };
+  document.getElementById("draftBtn").onclick=function(){ state.showDraft=!state.showDraft; this.classList.toggle("active",state.showDraft); schedulePreview(); };
+  document.getElementById("unfoldBtn").onclick=animateUnfold;
+  document.getElementById("saveBtn").onclick=saveCurrent;
+  document.getElementById("exportBtn").onclick=()=>{
+    const off=document.createElement("canvas"); off.width=SIZE; off.height=SIZE;
+    renderUnfolded(off.getContext("2d"), state.fold, state.strokes, {mode:state.showDraft?"draft":"cut", showAux:state.showAux});
+    const a=document.createElement("a"); a.download="剪纸坊-团花.png"; a.href=off.toDataURL("image/png"); a.click();
+    toast("已导出 PNG","ok");
+  };
+
+  /* ===================== 快捷键（桌面端） ===================== */
+  document.addEventListener("keydown", e=>{
+    if(e.target && /INPUT|TEXTAREA/.test(e.target.tagName)) return;
+    const mod = e.ctrlKey || e.metaKey;
+    if(!mod) return;
+    const k=e.key.toLowerCase();
+    const studioActive=document.getElementById("sec-studio").classList.contains("active");
+    const practiceActive=document.getElementById("sec-practice").classList.contains("active");
+    if(studioActive){
+      if(k==="z" && !e.shiftKey){ e.preventDefault(); undo(); }
+      else if(k==="y" || (k==="z" && e.shiftKey)){ e.preventDefault(); redo(); }
+    }else if(practiceActive){
+      if(k==="z" && !e.shiftKey){ e.preventDefault();
+        if(pState.history.length){ pState.future.push(pClone(pState.strokes)); pState.strokes=pState.history.pop(); pRefresh(); }
+      }
+    }
+  });
+
+  /* ===================== 初始化 ===================== */
+  buildLeftPanel();
+  drawFolded();
+  schedulePreview();
+  renderGallery();
+  updateUndoButtons();
+  updatePracticeButtons();
+})();
+</script>
+</body>
+</html>
